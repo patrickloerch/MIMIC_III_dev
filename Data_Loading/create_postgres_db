@@ -1,0 +1,41 @@
+## Created by Patrick Loerch on 3/12/2018
+## UNIX/Mac Script to create a Postgres database and load MIMIC III Data
+
+# Unzip MIMIC III Files
+gunzip *.gz
+
+# Start the postgres server
+brew services start postgresql
+
+# Create User
+create -P -s -e -d mimicuser
+
+# Connect to the default database 'postgres'
+psql -U mimicuser -d postgres
+
+# Create empty database
+CREATE DATABASE mimic OWNER mimicuser;
+
+# Create a schema to hold the data
+\c mimic;
+CREATE SCHEMA mimiciii;
+
+# This needs to be launched every time you launch psql in order to point to the mimiciii schema
+set search_path to mimiciii;
+
+# Leave postgres
+\q
+
+# Create database tables using sql script
+psql 'dbname=mimic user=mimicuser options=--search_path=mimiciii' -f postgres_create_tables.sql
+
+# Import Mimic III data into blank postgres_create_tables
+# This took ~20 hours on my MacBook Pro
+psql 'dbname=mimic user=mimicuser options=--search_path=mimiciii' -f postgres_load_data.sql -v mimic_data_dir='/Users/ploerch/Documents/iKU/github/MIMIC_III/'
+
+# Add indexes to improve performance
+psql 'dbname=mimic user=mimicuser options=--search_path=mimiciii' -f postgres_add_indexes.sql
+
+# Run checks
+# You should receive a list of tables and "PASSED" next to each
+psql 'dbname=mimic user=mimicuser options=--search_path=mimiciii' -f postgres_checks.sql
